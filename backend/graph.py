@@ -4,9 +4,9 @@ from langchain.chat_models import init_chat_model
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.memory import MemorySaver
-from langgraph.constants import Send
+from langgraph.types import Send
 from langgraph.graph import START, END, StateGraph
-from langgraph.types import interrupt, Command
+from langgraph.types import Command # interrupt
 
 from state import (
     ReportStateInput,
@@ -37,6 +37,13 @@ from utils import (
     get_search_params, 
     select_and_execute_search
 )
+from pydantic import BaseModel
+from typing import List
+
+class QueryItem(BaseModel):
+    search_query: str
+class SearchResults(BaseModel):
+    queries: List[QueryItem]
 
 ## Nodes -- 
 
@@ -87,7 +94,11 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
                                      HumanMessage(content="Generate search queries that will help with planning the sections of the report.")])
 
     # Web search
+    # query_list = [query.search_query for query in results.queries]
+    results = SearchResults(queries=[QueryItem(search_query="query1"),
+                                 QueryItem(search_query="query2")])
     query_list = [query.search_query for query in results.queries]
+
 
     # Search the web with parameters
     source_str = await select_and_execute_search(search_api, query_list, params_to_pass)
@@ -119,12 +130,16 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
         
         # Try to extract JSON using regex for flexibility
         content = response.content
-        json_match = re.search(r'```json\s*([\s\S]*?)\s*```', content)
+        json_match = re.search(r'```json\s*([\s\S]*?)\s*```', str(content))
         if json_match:
             json_str = json_match.group(1)
         else:
             # If no code block, try to find JSON directly
-            json_str = re.search(r'(\{[\s\S]*\})', content).group(1)
+            match = re.search(r'(\{[\s\S]*\})', str(content))
+            if match:
+                json_str = match.group(1)
+            else:
+                raise ValueError("No JSON object found in the response content.")
         
         try:
             # Parse the JSON
@@ -158,7 +173,8 @@ async def generate_report_plan(state: ReportState, config: RunnableConfig):
                                                 HumanMessage(content=planner_message)])
         
         # Get sections
-        sections = report_sections.sections
+        sections = report_sections.get("sections", []) if isinstance(report_sections, dict) else getattr(report_sections, "sections", [])
+       
 
     return {"sections": sections}
 
@@ -195,6 +211,8 @@ def human_feedback(state: ReportState, config: RunnableConfig) -> Command[Litera
                         \n\n{sections_str}\n
                         \nDoes the report plan meet your needs?\nPass 'true' to approve the report plan.\nOr, provide feedback to regenerate the report plan:"""
     
+    print("Interrupt message:", interrupt_message)
+
     # feedback = interrupt(interrupt_message)
 
     # If the user approves the report plan, kick off section writing
@@ -253,7 +271,7 @@ def generate_queries(state: SectionState, config: RunnableConfig):
     queries = structured_llm.invoke([SystemMessage(content=system_instructions),
                                      HumanMessage(content="Generate search queries on the provided topic.")])
     # print("\n-------Queries:----------",queries)
-    return {"search_queries": queries.queries}
+    return {"search_queries": queries.get("queries", []) if isinstance(queries, dict) else getattr(queries, "queries", [])}
 
 async def search_web(state: SectionState, config: RunnableConfig):
     """Execute web searches for the section queries.
@@ -284,11 +302,13 @@ async def search_web(state: SectionState, config: RunnableConfig):
     query_list = [query.search_query for query in search_queries]
     # print("\n-------Query List:----------",query_list)
     # Search the web with parameters
+    # source_str = await select_and_execute_search(search_api, query_list, params_to_pass)
+    query_list = [q for q in query_list if q is not None]
     source_str = await select_and_execute_search(search_api, query_list, params_to_pass)
 
     return {"source_str": source_str, "search_iterations": state["search_iterations"] + 1}
 
-def write_section(state: SectionState, config: RunnableConfig) -> Command[Literal[END, "search_web"]]:
+def write_section(state: SectionState, config: RunnableConfig) -> Command[Literal[END, "search_web"]]: # type: ignore
     """Write a section of the report and evaluate if more research is needed.
     
     This node:
@@ -330,7 +350,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
                                            HumanMessage(content=section_writer_inputs_formatted)])
     
     # Write content to the section object  
-    section.content = section_content.content
+    section.content = str(section_content.content) if not isinstance(section_content.content, str) else section_content.content
 
     # Grade prompt 
     section_grader_message = ("Grade the report and consider follow-up questions for missing information. "
@@ -360,7 +380,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
                                         HumanMessage(content=section_grader_message)])
 
     # If the section is passing or the max search depth is reached, publish the section to completed sections 
-    if feedback.grade == "pass" or state["search_iterations"] >= configurable.max_search_depth:
+    if isinstance(feedback, dict) and feedback.get("grade") == "pass" or state["search_iterations"] >= configurable.max_search_depth:
         # Publish the section to completed sections 
         return  Command(
         update={"completed_sections": [section]},
@@ -370,7 +390,7 @@ def write_section(state: SectionState, config: RunnableConfig) -> Command[Litera
     # Update the existing section with new content and update search queries
     else:
         return  Command(
-        update={"search_queries": feedback.follow_up_queries, "section": section},
+        update={"search_queries": getattr(feedback, "follow_up_queries", []), "section": section},
         goto="search_web"
         )
     
@@ -408,7 +428,7 @@ def write_final_sections(state: SectionState, config: RunnableConfig):
                                            HumanMessage(content="Generate a report section based on the provided sources.")])
     
     # Write content to section 
-    section.content = section_content.content
+    section.content = str(section_content.content) if not isinstance(section_content.content, str) else section_content.content
 
     # Write the updated section to completed sections
     return {"completed_sections": [section]}
@@ -451,7 +471,7 @@ def compile_final_report(state: ReportState):
 
     return ReportStateOutput(final_report=all_sections)
 
-def initiate_final_section_writing(state: ReportState):
+async def initiate_final_section_writing(state: ReportState):
     """Create parallel tasks for writing non-research sections.
     
     This edge function identifies sections that don't need research and

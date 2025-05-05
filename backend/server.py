@@ -16,26 +16,26 @@ from dotenv import load_dotenv
 from graph import graph
 from state import ReportStateInput
 
-# Load environment variables
+# - Load environment variables
 load_dotenv()
 
-# Create FastAPI app
+# - Create FastAPI app
 app = FastAPI(
     title="DeeRes API",
     description="Simple API for deep research and report generation",
     version="0.1.0"
 )
 
-# Add CORS middleware to allow frontend requests
+# - Add CORS middleware to allow frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=os.getenv("ALLOWED_ORIGINS", "").split(",") if os.getenv("ALLOWED_ORIGINS") else [],
+    allow_origins=["http://localhost:3000"],  # Frontend URL
     allow_credentials=True,
-    allow_methods=os.getenv("ALLOWED_METHODS", "").split(",") if os.getenv("ALLOWED_METHODS") else [],
-    allow_headers=os.getenv("ALLOWED_HEADERS", "").split(",")
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# API Key security
+# - API Key security
 API_KEY_NAME = "X-API-Key"
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
@@ -47,7 +47,7 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
         detail="Invalid or missing API Key",
     )
 
-# Models for API requests and responses
+# - Models for API requests and responses
 class ReportRequest(BaseModel):
     topic: str = Field(..., description="The topic for the report")
     config_overrides: Optional[Dict[str, Any]] = Field(None, description="Optional configuration overrides")
@@ -56,7 +56,7 @@ class ReportResponse(BaseModel):
     topic: str = Field(..., description="The topic of the report")
     content: str = Field(..., description="The generated report content")
 
-# In-memory job store (replace with Redis or database in production)
+# - In-memory job store (replace with Redis or database in production)
 JOBS = {}
 ACTIVE_JOBS_QUEUE = deque(maxlen=10)  # Limit concurrent jobs
 MAX_JOB_AGE_SECONDS = 3600  # 1 hour
@@ -77,19 +77,19 @@ class JobResult(BaseModel):
     estimated_time: Optional[int] = None
     error: Optional[str] = None
 
-# Check server readiness
+# - Check server readiness
 @app.get("/health")
 async def health_check():
     """Health check endpoint with server load information."""
     current_load = len(ACTIVE_JOBS_QUEUE)
     
-    # server_status = "busy" if current_load >= ACTIVE_JOBS_QUEUE.maxlen else "ready"
+    # | server_status = "busy" if current_load >= ACTIVE_JOBS_QUEUE.maxlen else "ready"
     if ACTIVE_JOBS_QUEUE.maxlen is not None and isinstance(current_load, int):
         server_status = "busy" if current_load >= ACTIVE_JOBS_QUEUE.maxlen else "ready"
     else:
         server_status = "unknown"
 
-    # Check for cold start
+    # | Check for cold start
     is_cold_start = time.time() - app.state.startup_time < 30 if hasattr(app.state, "startup_time") else True
     
     return {
@@ -103,7 +103,7 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     app.state.startup_time = time.time()
-    # Start background task to clean up old jobs
+    # | Start background task to clean up old jobs
     asyncio.create_task(cleanup_old_jobs())
 
 async def cleanup_old_jobs():
@@ -124,7 +124,7 @@ async def cleanup_old_jobs():
             print(f"Error cleaning up jobs: {str(e)}")
             await asyncio.sleep(300)
 
-# Modified endpoint to start report generation
+# - Modified endpoint to start report generation
 @app.post("/generate-report", response_model=JobResult)
 async def start_report_generation(request: ReportRequest, api_key: str = Depends(get_api_key)):
     """
@@ -132,7 +132,7 @@ async def start_report_generation(request: ReportRequest, api_key: str = Depends
     """
     job_id = str(uuid.uuid4())
     
-    # Check server load
+    # | Check server load
     if ACTIVE_JOBS_QUEUE.maxlen is not None and len(ACTIVE_JOBS_QUEUE) >= ACTIVE_JOBS_QUEUE.maxlen:
         position = len(ACTIVE_JOBS_QUEUE) + 1
         JOBS[job_id] = {
@@ -152,7 +152,7 @@ async def start_report_generation(request: ReportRequest, api_key: str = Depends
             estimated_time=position * 60
         )
     
-    # Create job record
+    # | Create job record
     JOBS[job_id] = {
         "status": JobStatus.PROCESSING,
         "progress": 0.0,
@@ -161,13 +161,13 @@ async def start_report_generation(request: ReportRequest, api_key: str = Depends
         "request": request.dict()
     }
     
-    # Start processing in background thread
+    # | Start processing in background thread
     threading.Thread(
         target=process_report_job,
         args=(job_id, request)
     ).start()
     
-    # Return immediately with job ID
+    # | Return immediately with job ID
     return JobResult(
         job_id=job_id,
         status=JobStatus.PROCESSING,
@@ -179,12 +179,12 @@ def process_report_job(job_id: str, request: ReportRequest):
     try:
         ACTIVE_JOBS_QUEUE.append(job_id)
         
-        # Update job status
+        # | Update job status
         JOBS[job_id]["status"] = JobStatus.PROCESSING
         JOBS[job_id]["progress"] = 0.1
         JOBS[job_id]["message"] = "Planning report structure..."
         
-        # Set up config like in the original function
+        # | Set up config like in the original function
         thread_id = str(uuid.uuid4())
         config_base = {
             "configurable": {
@@ -197,16 +197,16 @@ def process_report_job(job_id: str, request: ReportRequest):
             }
         }
         
-        # Apply overrides
+        # | Apply overrides
         if request.config_overrides:
             for key, value in request.config_overrides.items():
                 config_base["configurable"][key] = value
         
-        # For each major step, update progress
+        # | For each major step, update progress
         topic_input = ReportStateInput(topic=request.topic)
         
-        # Run the graph synchronously in this thread
-        # Mock progress updates (in production, these would come from actual graph progress)
+        # | Run the graph synchronously in this thread
+        # | Mock progress updates (in production, these would come from actual graph progress)
         progress_steps = [
             (0.2, "Generating search queries..."),
             (0.3, "Searching for relevant information..."),
@@ -216,12 +216,12 @@ def process_report_job(job_id: str, request: ReportRequest):
         ]
         
         for progress, message in progress_steps:
-            # In a real implementation, these updates would be interspersed with actual processing
+            # | In a real implementation, these updates would be interspersed with actual processing
             JOBS[job_id]["progress"] = progress
             JOBS[job_id]["message"] = message
             time.sleep(2)  # Simulate work happening
         
-        # Run the actual graph
+        # | Run the actual graph
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         from graph import RunnableConfig  # Ensure RunnableConfig is imported
@@ -229,9 +229,9 @@ def process_report_job(job_id: str, request: ReportRequest):
         result = loop.run_until_complete(graph.ainvoke(topic_input, config=config_casted))
         loop.close()
         
-        # Check for the final report in the result
+        # | Check for the final report in the result
         if isinstance(result, dict) and "final_report" in result:
-            # Store the completed report
+            # | Store the completed report
             JOBS[job_id]["status"] = JobStatus.COMPLETED
             JOBS[job_id]["progress"] = 1.0
             JOBS[job_id]["message"] = "Report completed"
@@ -240,24 +240,24 @@ def process_report_job(job_id: str, request: ReportRequest):
                 "content": result["final_report"]
             }
         else:
-            # If no final report was returned
+            # | If no final report was returned
             JOBS[job_id]["status"] = JobStatus.FAILED
             JOBS[job_id]["message"] = "Failed to generate report"
             JOBS[job_id]["error"] = "Graph finished but did not return a final report"
     
     except Exception as e:
-        # Handle exceptions
+        # | Handle exceptions
         print(f"Error generating report: {str(e)}")
         JOBS[job_id]["status"] = JobStatus.FAILED
         JOBS[job_id]["message"] = "Error occurred during report generation"
         JOBS[job_id]["error"] = str(e)
     
     finally:
-        # Remove from active jobs queue
+        # | Remove from active jobs queue
         if job_id in ACTIVE_JOBS_QUEUE:
             ACTIVE_JOBS_QUEUE.remove(job_id)
 
-# Add endpoint to check job status
+# - Add endpoint to check job status
 @app.get("/job-status/{job_id}", response_model=JobResult)
 async def get_job_status(job_id: str, api_key: str = Depends(get_api_key)):
     """
@@ -294,5 +294,8 @@ async def get_job_status(job_id: str, api_key: str = Depends(get_api_key)):
 
 if __name__ == "__main__":
     import uvicorn
-    # Run the server with Uvicorn
+    # - Run the server with Uvicorn
     uvicorn.run("server:app", host="localhost", port=8000, reload=True)
+
+# - To run the server, use the command:
+# $ uvicorn server:app --reload

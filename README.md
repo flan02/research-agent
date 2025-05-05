@@ -37,6 +37,10 @@
 
 - Obtain a **GROQ_API_KEY**.
 
+[GROQ website](https://console.groq.com/login)
+
+> Next, go to the **API Keys** section and create a new key. Make sure to copy the key as you will need it later.
+
 ##### **3. Set Up the Backend**
 
 - Navigate to the backend folder:

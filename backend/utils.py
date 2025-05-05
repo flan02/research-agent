@@ -1,3 +1,4 @@
+#from html import parser
 import os
 import asyncio
 import requests
@@ -5,8 +6,8 @@ import random
 import concurrent
 import aiohttp
 import time
-import logging
-from typing import List, Optional, Dict, Any, Union, Callable, TypeVar
+#import logging
+from typing import Coroutine, List, Optional, Dict, Any, Union, Callable, TypeVar
 from urllib.parse import unquote
 from functools import wraps
 
@@ -15,6 +16,7 @@ from exa_py import Exa
 from tavily import AsyncTavilyClient
 from duckduckgo_search import DDGS 
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 
 from langchain_community.retrievers import ArxivRetriever
 from langchain_community.utilities.pubmed import PubMedAPIWrapper
@@ -23,22 +25,26 @@ from langsmith import traceable
 from state import Section
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
+import concurrent.futures
+from aiohttp import ClientTimeout
+
+
 
 T = TypeVar('T')
 
-def retry_with_exponential_backoff(
-    max_retries: int = 5,
-    base_delay: float = 1.0,
-    jitter: float = 0.1,
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
+def retry_with_exponential_backoff(max_retries: int = 5, base_delay: float = 1.0, jitter: float = 0.1) -> Callable[[Callable[..., Coroutine[Any, Any, T]]], Callable[..., Coroutine[Any, Any, T]]]:
     """Retry a function with exponential backoff when it raises specific exceptions."""
-    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    # def decorator(func: Callable[..., T]) -> Callable[..., T]:
+    def decorator(
+        func: Callable[..., Coroutine[Any, Any, T]]
+    ) -> Callable[..., Coroutine[Any, Any, T]]:
+        
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> T:
             retries = 0
             while True:
                 try:
-                    return await func(*args, **kwargs)
+                    return await func(*args, **kwargs) # 
                 except Exception as e:
                     # Check if it's a rate limit error from DuckDuckGo
                     if "Ratelimit" in str(e) and retries < max_retries:
@@ -46,7 +52,8 @@ def retry_with_exponential_backoff(
                         # Calculate delay with jitter
                         delay = base_delay * (2 ** retries) + random.uniform(0, jitter)
                         print(f"Search rate-limited. Retrying in {delay:.2f} seconds (attempt {retries}/{max_retries})...")
-                        time.sleep(delay)
+                        await asyncio.sleep(delay)
+                        # time.sleep(delay)
                     else:
                         # If max retries exceeded or different error, re-raise
                         raise
@@ -271,7 +278,7 @@ def perplexity_search(search_queries):
         
         # First citation gets the full content
         results.append({
-            "title": f"Perplexity Search, Source 1",
+            "title": "Perplexity Search, Source 1",
             "url": citations[0],
             "content": content,
             "raw_content": content,
@@ -539,7 +546,9 @@ async def arxiv_search_async(search_queries, load_max_docs=5, get_full_documents
             retriever = ArxivRetriever(
                 load_max_docs=load_max_docs,
                 get_full_documents=get_full_documents,
-                load_all_available_meta=load_all_available_meta
+                load_all_available_meta=load_all_available_meta,
+                arxiv_exceptions=True,
+                arxiv_search=None
             )
             
             # Run the synchronous retriever in a thread pool
@@ -570,7 +579,7 @@ async def arxiv_search_async(search_queries, load_max_docs=5, get_full_documents
 
                 # Add publication information
                 published = metadata.get('Published')
-                published_str = published.isoformat() if hasattr(published, 'isoformat') else str(published) if published else ''
+                published_str = published.isoformat() if published and hasattr(published, 'isoformat') else str(published) if published else ''
                 if published_str:
                     content_parts.append(f"Published: {published_str}")
 
@@ -700,7 +709,8 @@ async def pubmed_search_async(search_queries, top_k_results=5, email=None, api_k
                 top_k_results=top_k_results,
                 doc_content_chars_max=doc_content_chars_max,
                 email=email if email else "your_email@example.com",
-                api_key=api_key if api_key else ""
+                api_key=api_key if api_key else "",
+                parse=True
             )
             
             # Run the synchronous wrapper in a thread pool
@@ -870,77 +880,13 @@ async def duckduckgo_search(search_queries):
 @retry_with_exponential_backoff(max_retries=5, base_delay=2.0)
 async def execute_search(search_api: str, query: str, params: dict) -> list:
     """Execute a search with the given API and parameters."""
-    # Your existing search code...
-
-# First, enhance the select_and_execute_search function to include fallback logic
-async def select_and_execute_search(search_api: str, query_list: list[str], params_to_pass: dict) -> str:
-    """Select and execute the appropriate search API with fallback support for rate limiting."""
     try:
-        # First, try with the requested search API
-        if search_api == "duckduckgo":
-            try:
-                # Process only first 2-3 queries to reduce chance of rate limiting
-                limited_queries = query_list[:min(3, len(query_list))]
-                
-                # Add longer delays between searches
-                search_results = []
-                for i, query in enumerate(limited_queries):
-                    # Add delay between requests to avoid rate limiting
-                    if i > 0:
-                        print(f"Adding delay between DuckDuckGo searches ({i}/{len(limited_queries)})...")
-                        await asyncio.sleep(2 + random.random() * 2)  # 2-4 second random delay
-                    
-                    # Execute single query with retries
-                    result = await execute_duckduckgo_search_with_retry(query)
-                    search_results.append(result)
-                
-                return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
-            except Exception as e:
-                if "Ratelimit" in str(e):
-                    print(f"DuckDuckGo rate limited. Falling back to Exa API: {e}")
-                    # Fall back to Exa API
-                    search_api = "exa"
-                    exa_params = get_search_params("exa", {})
-                    exa_params.update(params_to_pass)  # Merge any passed params
-                    search_results = await exa_search(query_list, **exa_params)
-                    return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
-                else:
-                    # Re-raise if it's not a rate limit error
-                    raise
-        
-        # Regular processing for other APIs
-        if search_api == "tavily":
-            search_results = await tavily_search_async(query_list, **params_to_pass)
-        elif search_api == "perplexity":
-            search_results = perplexity_search(query_list, **params_to_pass)
-        elif search_api == "exa":
-            search_results = await exa_search(query_list, **params_to_pass)
-        elif search_api == "arxiv":
-            search_results = await arxiv_search_async(query_list, **params_to_pass)
-        elif search_api == "pubmed":
-            search_results = await pubmed_search_async(query_list, **params_to_pass)
-        elif search_api == "linkup":
-            search_results = await linkup_search(query_list, **params_to_pass)
-        elif search_api == "googlesearch":
-            search_results = await google_search_async(query_list, **params_to_pass)
-        else:
-            raise ValueError(f"Unsupported search API: {search_api}")
-            
-        return deduplicate_and_format_sources(search_results, max_tokens_per_source=4000)
+        # Your existing search code...
+        # Ensure the function returns a list of results
+        return []  # Replace with actual search logic
     except Exception as e:
-        print(f"Error in search (API: {search_api}): {str(e)}")
-        # If all else fails, return an error message that can be used in the report
-        return f"""
-        [Search Error: Unable to retrieve information]
-        
-        The search system encountered an error while trying to find information.
-        Error details: {str(e)}
-        
-        The following queries were attempted:
-        {chr(10).join('- ' + q for q in query_list)}
-        
-        Please proceed with general knowledge about the topic.
-        """
+        print(f"Error executing search: {e}")
+        return []  # Return an empty list in case of an error
 
 # Add a new helper function specifically for DuckDuckGo with retry logic
 async def execute_duckduckgo_search_with_retry(query, max_retries=5):
@@ -1121,15 +1067,19 @@ async def google_search_async(search_queries: Union[str, List[str]], max_results
                                 # Parse results
                                 soup = BeautifulSoup(resp.text, "html.parser")
                                 result_block = soup.find_all("div", class_="ezO2md")
+                                
                                 new_results = 0
                                 
                                 for result in result_block:
-                                    link_tag = result.find("a", href=True)
-                                    title_tag = link_tag.find("span", class_="CVA68e") if link_tag else None
-                                    description_tag = result.find("span", class_="FrIlee")
+                                    link_tag = result.find("a", href=True) if isinstance(result, Tag) else None
+                                    title_tag = link_tag.find("span", class_="CVA68e") if isinstance(link_tag, Tag) else None
+                                    description_tag = result.find("span", class_="FrIlee") if isinstance(result, Tag) else None
                                     
                                     if link_tag and title_tag and description_tag:
-                                        link = unquote(link_tag["href"].split("&")[0].replace("/url?q=", ""))
+                                        if isinstance(link_tag, Tag) and "href" in link_tag.attrs:
+                                            link = unquote(str(link_tag["href"]).split("&")[0].replace("/url?q=", ""))
+                                        else:
+                                            link = ""
                                         
                                         if link in fetched_links:
                                             continue
@@ -1192,7 +1142,7 @@ async def google_search_async(search_queries: Union[str, List[str]], max_results
                                 
                                 try:
                                     await asyncio.sleep(0.2 + random.random() * 0.6)
-                                    async with session.get(url, headers=headers, timeout=10) as response:
+                                    async with session.get(url, headers=headers, timeout=ClientTimeout(total=10)) as response:
                                         if response.status == 200:
                                             # Check content type to handle binary files
                                             content_type = response.headers.get('Content-Type', '').lower()
@@ -1310,8 +1260,7 @@ def init_model_with_provider(model_name: str, provider: str, **kwargs) -> BaseCh
                 
             # Initialize Groq model directly
             return ChatGroq(
-                model_name=model_name,
-                groq_api_key=api_key,
+                model=model_name,
                 temperature=0.1
             )
         else:

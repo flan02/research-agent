@@ -58,6 +58,8 @@ const thoughtStages = [
 
 export default function Home() {
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [status, setStatus] = useState<string>("Checking...");
   const [topic, setTopic] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -99,6 +101,27 @@ export default function Home() {
 
     return () => clearInterval(interval);
   }, [isLoading, processingTime, currentStage]);
+
+
+  // * Check server FastAPI status
+  useEffect(() => {
+    const fetchServerStatus: () => Promise<void> = async () => {
+      try {
+        const res = await fetch(`http://localhost:8000/health`, {
+          headers: {
+            'X-API-Key': process.env.NEXT_PUBLIC_API_KEY!
+          }
+        })
+        const data = await res.json();
+        console.log(data);
+        setServerStatus(data.status || 'OK');
+      } catch (error) {
+        console.error("Error fetching server status:", error);
+        setStatus("Server is unavailable");
+      }
+    }
+    fetchServerStatus();
+  }, [])
 
   // * Generate report
   const handleSubmit = async (e: React.FormEvent) => {
