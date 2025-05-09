@@ -652,9 +652,9 @@ export default function Home() {
 
         {report && (
           <section className="animate-fade-in">
-            <div className="p-6 bg-black border border-gray-200 shadow-sm rounded-xl dark:border-gray-800">
+            <div className="p-6 border border-gray-200 shadow-sm bg-amber-50 rounded-xl dark:border-gray-800">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                <h2 className="text-xl font-bold text-gray-900">
                   Research Report
                 </h2>
                 <span className="px-3 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full dark:bg-green-900/30 dark:text-green-400">
@@ -737,7 +737,7 @@ export default function Home() {
               <div className="pt-6 mt-8 border-t border-gray-200 dark:border-gray-800">
                 <button
                   onClick={() => window.print()}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-200 bg-gray-100 border-blue-200 rounded-lg hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-200 bg-gray-400 border-blue-200 rounded-lg hover:bg-gray-400/80 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
                 >
                   Print / Save as PDF
                 </button>

@@ -1,6 +1,6 @@
-from typing import Annotated, List, TypedDict, Literal, Optional
+from typing import Annotated, List, TypedDict, Literal # Optional
 import operator  # Add this import
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field #, constr
 
 class Section(BaseModel):
     name: str = Field(
@@ -22,7 +22,8 @@ class Sections(BaseModel):
     )
 
 class SearchQuery(BaseModel):
-    search_query: Optional[str] = Field(None, description="Query for web search.")
+    search_query: Annotated[str, Field(min_length=1, description="Query for web search.")]
+    # search_query: Optional[str] = Field(None, description="Query for web search.")
 
 class Queries(BaseModel):
     queries: List[SearchQuery] = Field(
