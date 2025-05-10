@@ -1,4 +1,5 @@
 import os
+import re
 
 # Path to utils.py
 utils_path = os.path.join(os.path.dirname(__file__), 'utils.py')
@@ -29,7 +30,6 @@ async def linkup_search(search_queries, depth: Optional[str] = "standard"):
 '''
 
 # Find the original function and replace it
-import re
 pattern = r'@traceable\nasync def linkup_search.*?return search_results'
 if re.search(pattern, content, re.DOTALL):
     content = re.sub(pattern, linkup_replacement.strip(), content, flags=re.DOTALL)
