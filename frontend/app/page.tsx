@@ -8,6 +8,8 @@ import rehypeSanitize from "rehype-sanitize";
 import { BackgroundBeams } from "@/components/ui/background-beams";
 import { CardSpotlight } from "@/components/ui/animated-card";
 import { PlaceholdersAndVanishInput } from "@/components/ui/placeholders-and-vanish-input";
+import ProfileCard from "@/components/reutilizable/ProfileCard";
+import NeonBorderBox from "@/components/reutilizable/NeonBorderBox";
 const geistMono = Geist_Mono({ subsets: ["latin"] });
 
 // Types
@@ -263,6 +265,13 @@ export default function Home() {
     100,
     ((currentStage + 1) / thoughtStages.length) * 100
   );
+
+  // * Soft Reloading
+
+
+  const handleSoftReload = () => {
+    setReport(null)
+  }
 
   return (
     <div className="relative w-full min-h-screen bg-black from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 px-15">
@@ -527,6 +536,7 @@ export default function Home() {
                 </p>
               </CardSpotlight>
             </div>
+
           </section>
         )
         }
@@ -608,6 +618,8 @@ export default function Home() {
                     ))}
                   </div>
                 </div>
+
+
 
                 {processingTime > 30 && (
                   <div className="mt-6 text-sm text-center text-gray-500 dark:text-gray-400">
@@ -734,27 +746,38 @@ export default function Home() {
                 </ReactMarkdown>
               </article>
 
-              <div className="pt-6 mt-8 border-t border-gray-200 dark:border-gray-800">
+              <div className="flex pt-6 mt-8 space-x-4 border-t border-gray-200 dark:border-gray-800">
                 <button
                   onClick={() => window.print()}
                   className="px-4 py-2 text-sm font-medium text-gray-700 transition-colors duration-200 bg-gray-400 border-blue-200 rounded-lg hover:bg-gray-400/80 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-300"
                 >
                   Print / Save as PDF
                 </button>
+                <button
+                  className="px-4 py-2 text-sm font-medium text-white transition-colors duration-200 bg-black rounded-lg hover:bg-black/80"
+                  onClick={handleSoftReload}>START AGAIN</button>
               </div>
             </div>
           </section>
         )}
 
-        {!isLoading && !report && !error && (
-          <div>
-            <PlaceholdersAndVanishInput
-              placeholders={placeholders}
-              onChange={(e) => setTopic(e.target.value)}
-              onSubmit={handleSubmit}
-            />
-          </div>
-        )}
+        {
+          !isLoading && !report && !error && (
+            <article className="">
+              <PlaceholdersAndVanishInput
+                placeholders={placeholders}
+                onChange={(e) => setTopic(e.target.value)}
+                onSubmit={handleSubmit}
+              />
+              <br />
+              <div className="flex justify-center">
+                <NeonBorderBox>
+                  <ProfileCard />
+                </NeonBorderBox>
+              </div>
+            </article>
+          )
+        }
       </main>
       <div className="inset-0 z-0">
         <BackgroundBeams />

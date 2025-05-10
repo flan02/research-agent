@@ -16,6 +16,11 @@ from dotenv import load_dotenv
 from graph import graph
 from state import ReportStateInput
 
+# $ To run the server, use the command:
+""" 
+uvicorn server:app --reload
+"""
+
 # - Load environment variables
 load_dotenv()
 
