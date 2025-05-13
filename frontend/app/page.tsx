@@ -23,7 +23,7 @@ interface ReportResponse {
   content: string;
 }
 
-// Simulated thought process stages with interesting details for a better user experience
+// * Simulated thought process stages with interesting details for a better user experience
 const thoughtStages = [
   {
     text: "Planning report structure...",
@@ -71,6 +71,14 @@ export default function Home() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [serverStatus, setServerStatus] = useState<string | null>(null);
   const placeholders = [
+    "Blockchain integration in global finance",
+    "AI ethics and responsible innovation",
+    "Space exploration milestones of the decade",
+    "Cybersecurity threats in the era of IoT",
+    "Neuroscience breakthroughs and brain-machine interfaces",
+  ];
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const placeholders2 = [
     "Quantum computing advances in 2024",
     "AI in healthcare: Transforming patient care",
     "Climate change impact on global agriculture",
@@ -279,7 +287,7 @@ export default function Home() {
         {/* Hero section - only visible when not loading/showing results/errors */}
         {!isLoading && !report && !error && (
           <section className="animate-fade-in">
-            <div className="flex flex-col items-center mb-10 text-center">
+            <div className="flex flex-col items-center mb-2 text-center">
               {/* Headline and description */}
               <h4 className="text-5xl font-bold text-transparent bg-gradient-to-r from-orange-200 via-slate-400 to-red-200 bg-clip-text">
                 Research Agent
@@ -287,7 +295,7 @@ export default function Home() {
             </div>
 
             {/* Feature boxes */}
-            <div className="grid grid-cols-2 gap-4 mb-12 md:grid-cols-4 md:gap-6">
+            <div className="grid grid-cols-2 gap-4 mb-12 md:grid-cols-4 md:gap-8">
               <CardSpotlight className="px-4 h-max md:w-56 max-md:px-3">
                 <div className="flex justify-center">
                   <svg
@@ -594,7 +602,7 @@ export default function Home() {
                         <span
                           className={
                             index === currentStage
-                              ? "text-white font-bold mt-0.5"
+                              ? "text-gray-500 font-bold mt-0.5"
                               : "mt-0.5"
                           }
                         >
@@ -603,7 +611,7 @@ export default function Home() {
                         <div>
                           <div
                             className={
-                              index === currentStage ? "text-white font-bold" : ""
+                              index === currentStage ? "text-gray-500 font-bold" : ""
                             }
                           >
                             {stage.text}

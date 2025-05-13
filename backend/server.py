@@ -26,7 +26,7 @@ load_dotenv()
 
 # - Create FastAPI app
 app = FastAPI(
-    title="DeeRes API",
+    title="FastAPI Research AI Agent",
     description="Simple API for deep research and report generation",
     version="0.1.0"
 )
@@ -34,7 +34,7 @@ app = FastAPI(
 # - Add CORS middleware to allow frontend requests
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=["http://localhost:3000"],  # * Frontend URL
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -147,7 +147,7 @@ async def start_report_generation(request: ReportRequest, api_key: str = Depends
             "created_at": time.time(),
             "request": request.dict(),
             "position_in_queue": position,
-            "estimated_time": position * 60  # Rough estimate: 1 minute per job
+            "estimated_time": position * 60  # | Rough estimate: 1 minute per job
         }
         return JobResult(
             job_id=job_id,

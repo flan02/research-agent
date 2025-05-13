@@ -24,18 +24,19 @@ const ProfileCard = () => {
               Fullstack MERN developer | AI first-app py
             </CardDescription>
             <p className="text-sm text-muted-foreground">Location: Buenos Aires, Argentina</p>
+            <p className="text-sm text-muted-foreground">Project Length: 35 days</p>
           </div>
         </div>
       </CardHeader>
 
       <CardContent>
-        <p className="text-sm text-white">This agent is capable of gathering n summarizing web content autonomously. It integrates LLMs with tool use and planning to streamline knowledge extraction.
-          A practical step in my shift toward building intelligent, autonomous systems as an AI-first dev.
+        <p className="text-sm text-white">This agent is capable of gathering and summarizing web content autonomously. It integrates LLMs with tool use and planning to streamline knowledge extraction.
+          <span className="font-bold text-white"> A practical step in my shift toward building intelligent, autonomous systems as an AI-first app.</span>
         </p>
       </CardContent>
 
       <CardFooter className="flex flex-col items-start space-y-2">
-        <p className="font-black text-white">Research agent tech stack</p>
+        <p className="text-base font-black text-white">Research agent tech stack</p>
         <div className="flex flex-wrap space-x-1 space-y-1">
           <Badge className="bg-[#3776AB]">Python</Badge>
           <Badge className="bg-[#009688]">FastAPI</Badge>
@@ -44,6 +45,8 @@ const ProfileCard = () => {
           <Badge className="bg-black border border-white">Next</Badge>
           <Badge className="bg-[#38BDF8]">Tailwindcss</Badge>
           <Badge className="bg-[#EC4899]">Framer Motion</Badge>
+          <Badge className="bg-[#F55036]">Groq</Badge>
+          <div></div>
         </div>
       </CardFooter>
     </Card>

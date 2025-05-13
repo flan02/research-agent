@@ -13,11 +13,23 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI-Powered Research Agent",
+  title: "AI-First application Research Agent powered by Groq",
   description: "Get comprehensive research on any topic in a click.",
+  metadataBase: new URL("https://danchanivet.tech"),
   icons: {
     icon: "/favicon.ico",
   },
+  authors: [
+    {
+      name: "Dan Chanivet",
+      url: "https://danchanivet.tech"
+    }
+  ],
+  openGraph: {
+    title: "AI-First application Research Agent powered by Groq",
+    description: "Get comprehensive research on any topic in a click.",
+    images: ["/opengraph-image.png"]
+  }
 };
 
 export default function RootLayout({
